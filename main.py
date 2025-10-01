@@ -1,73 +1,69 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import joblib
 import pandas as pd
+import os
 import logging
 
-from inference import ModelService
-
-# Initialize logging
+# Logger setup
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("main")
+logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(title="Churn Prediction API")
+app = FastAPI()
 
-# Load the churn model
-model_service = ModelService(model_name="telco_linear")
+# Load model (will be initialized in startup event)
+model = None
 
+# Sample input format using Pydantic
+class CustomerData(BaseModel):
+    gender: str
+    SeniorCitizen: int
+    Partner: str
+    Dependents: str
+    tenure: int
+    PhoneService: str
+    MultipleLines: str
+    InternetService: str
+    OnlineSecurity: str
+    OnlineBackup: str
+    DeviceProtection: str
+    TechSupport: str
+    StreamingTV: str
+    StreamingMovies: str
+    Contract: str
+    PaperlessBilling: str
+    PaymentMethod: str
+    MonthlyCharges: float
+    TotalCharges: float
 
-# Request model for Pydantic validation
-class ChurnRequest(BaseModel):
-    data: list
-
+# Triggered when the API starts
+@app.on_event("startup")
+def load_model():
+    global model
+    try:
+        model_path = "models/telco_linear/telco_linear.pkl"
+        if os.path.exists(model_path):
+            model = joblib.load(model_path)
+            logger.info("✅ Model loaded successfully.")
+        else:
+            logger.error(f"❌ Model file not found at: {model_path}")
+    except Exception as e:
+        logger.error(f"❌ Error loading model: {e}")
 
 @app.get("/")
 def root():
     return {"message": "Churn Prediction API is running"}
 
-
 @app.post("/predict")
-def predict_churn(request: ChurnRequest):
+def predict(data: CustomerData):
     try:
-        logger.info("[INFO] Received data for prediction")
-
-        # Convert input JSON to DataFrame
-        df_raw = pd.DataFrame(request.data)
-
-        # Cast all rows to correct types
-        df_casted = pd.DataFrame([
-            model_service.model.cast_dct(row) for row in df_raw.to_dict(orient="records")
-        ])
-
-        # Make prediction
-        predictions, probabilities = model_service.predict(df_casted)
-
-        # Convert NumPy arrays to native Python types for JSON serialization
-        return {
-            "predictions": predictions.tolist(),
-            "probabilities": probabilities.tolist()
-        }
-
+        if model is None:
+            raise ValueError("Model not loaded")
+        
+        df = pd.DataFrame([data.dict()])
+        prediction = model.predict(df)
+        return {"predictions": prediction.tolist()}
+    
     except Exception as e:
-        logger.error(f"[ERROR] Prediction failed: {e}")
-        return {"error": str(e)}
-
-
-@app.post("/explain")
-def explain_churn(request: ChurnRequest):
-    try:
-        logger.info("[INFO] Received data for explanation")
-
-        df_raw = pd.DataFrame(request.data)
-        row = model_service.model.cast_dct(df_raw.iloc[0].to_dict())
-
-        probability, explanation = model_service.explain(row)
-
-        return {
-            "probability": probability,
-            "explanation": explanation
-        }
-
-    except Exception as e:
-        logger.error(f"[ERROR] Explanation failed: {e}")
-        return {"error": str(e)}
+        logger.error(f"Prediction failed: {e}")
+        raise HTTPException(status_code=500, detail={"error": str(e)})
