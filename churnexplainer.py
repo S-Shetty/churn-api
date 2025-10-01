@@ -1,5 +1,3 @@
-# churnexplainer.py
-
 import os
 import dill
 import pandas as pd
@@ -17,6 +15,11 @@ class ExplainedModel:
         self.pipeline = pipeline
         self.explainer = explainer
 
+        # Load model if name is provided
+        if isinstance(labels, str):  # overloaded to allow model_name in labels param
+            loaded = self.load(labels)
+            self.__dict__.update(loaded.__dict__)
+
     @staticmethod
     def load(model_name) -> "ExplainedModel":
         model_dir = os.path.join(DATA_DIR, "models", model_name)
@@ -26,7 +29,7 @@ class ExplainedModel:
             with open(model_path, "rb") as f:
                 result.__dict__.update(dill.load(f))
             return result
-        except OSError as err: 
+        except OSError as err:
             print(f"Model path does not exist, returned error: {err}")
 
     def save(self, model_name):
@@ -45,7 +48,7 @@ class ExplainedModel:
 
     def predict_df(self, df):
         X = self.categoricalencoder.transform(df)
-        return self.pipeline.predict_proba(X)[:, 1]
+        return self.pipeline.predict(X), self.pipeline.predict_proba(X)[:, 1]
 
     def explain_df(self, df):
         X = self.categoricalencoder.transform(df)
@@ -69,6 +72,9 @@ class ExplainedModel:
             except Exception:
                 result[k] = v
         return result
+
+    def explain(self, dct):  # ✅ ADDED TO FIX THE ERROR
+        return self.explain_dct(dct)
 
     @property
     def dtypes(self):
@@ -129,6 +135,7 @@ class ExplainedModel:
             })
             self._default_data = d
         return self._default_data
+
 
 class CategoricalEncoder(TransformerMixin):
     def fit(self, X, y=None, *args, **kwargs):
