@@ -18,13 +18,11 @@ except Exception as e:
 
 # --- Prediction Endpoint ---
 @app.post("/predict")
-def predict(data: dict):
-    if model is None:
-        raise HTTPException(status_code=500, detail="Model not loaded")
-
+def predict(data: Dict[str, Any]):
     try:
-        df = pd.DataFrame([data])
-        prediction = model.predict(df)[0]
-        return {"prediction": int(prediction)}
+        pred = churn_predictor.predict(data)
+        return {"prediction": int(pred)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
+        print(f"[ERROR] Prediction failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
+
