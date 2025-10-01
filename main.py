@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
 import pandas as pd
 import logging
@@ -12,8 +12,7 @@ logger = logging.getLogger("main")
 # Initialize FastAPI app
 app = FastAPI(title="Churn Prediction API")
 
-# Initialize model service
-# Initialize model service
+# Load the churn model
 model_service = ModelService(model_name="telco_linear")
 
 
@@ -21,27 +20,38 @@ model_service = ModelService(model_name="telco_linear")
 class ChurnRequest(BaseModel):
     data: list
 
+
 @app.get("/")
 def root():
     return {"message": "Churn Prediction API is running"}
+
 
 @app.post("/predict")
 def predict_churn(request: ChurnRequest):
     try:
         logger.info("[INFO] Received data for prediction")
 
+        # Convert input JSON to DataFrame
         df_raw = pd.DataFrame(request.data)
+
+        # Cast all rows to correct types
         df_casted = pd.DataFrame([
             model_service.model.cast_dct(row) for row in df_raw.to_dict(orient="records")
         ])
 
-        predictions = model_service.predict(df_casted)
+        # Make prediction
+        predictions, probabilities = model_service.predict(df_casted)
 
-        return {"predictions": predictions}
+        # Convert NumPy arrays to native Python types for JSON serialization
+        return {
+            "predictions": predictions.tolist(),
+            "probabilities": probabilities.tolist()
+        }
 
     except Exception as e:
         logger.error(f"[ERROR] Prediction failed: {e}")
         return {"error": str(e)}
+
 
 @app.post("/explain")
 def explain_churn(request: ChurnRequest):
