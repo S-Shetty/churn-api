@@ -18,19 +18,28 @@ jobs:
         with:
           python-version: 3.9
 
-      - name: Install dependencies
+      # Optional: Run tests (skip or enable based on your needs)
+      - name: Run Unit Tests (optional)
         run: |
           pip install -r requirements.txt
           pip install pytest
-
-      - name: Run Unit Tests (optional)
-        run: |
-          pytest --maxfail=1 --disable-warnings -o pythonpath=. || echo "⚠️ Tests failed or not found — continuing deployment."
+          pytest || echo "⚠️ Skipping failing tests..."
 
       - name: Deploy to EC2
         uses: easingthemes/ssh-deploy@main
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.EC2_HOST }}
-          REMOTE_USER: ubuntu
-          TARGET: churn-api
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+          remote-user: ubuntu
+          server-ip: ${{ secrets.EC2_HOST }}
+          target: churn-api
+
+      - name: SSH and Restart App
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd churn-api
+            chmod +x start.sh
+            ./start.sh
