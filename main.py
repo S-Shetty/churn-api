@@ -1,7 +1,12 @@
 from fastapi import FastAPI, HTTPException
-import pandas as pd
+from pydantic import BaseModel
 import pickle
+import pandas as pd
 import os
+from typing import Dict, Any  # ✅ Add this line
+
+from churnexplainer import ChurnExplainer
+
 
 app = FastAPI()
 
