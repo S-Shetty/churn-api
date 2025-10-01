@@ -3,31 +3,19 @@ from pydantic import BaseModel
 import pickle
 import pandas as pd
 import os
-from typing import Dict, Any  # ✅ Add this line
+from typing import Dict, Any
 
-from churnexplainer import ChurnExplainer
-
+from churnexplainer import ExplainedModel  # ✅ Correct class
 
 app = FastAPI()
 
-# --- Load the model ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "telco_linear", "telco_linear.pkl")
+churn_predictor = ExplainedModel("telco_linear")  # ✅ Initialize model properly
 
-try:
-    with open(MODEL_PATH, "rb") as f:
-        model = pickle.load(f)
-except Exception as e:
-    print(f"Error loading model: {e}")
-    model = None
-
-# --- Prediction Endpoint ---
 @app.post("/predict")
 def predict(data: Dict[str, Any]):
     try:
-        pred = churn_predictor.predict(data)
-        return {"prediction": int(pred)}
+        pred, _ = churn_predictor.predict_df(pd.DataFrame([data]))  # ✅ Correct method
+        return {"prediction": int(pred[0])}
     except Exception as e:
         print(f"[ERROR] Prediction failed: {e}")
         raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
-
