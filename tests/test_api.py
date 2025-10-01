@@ -3,6 +3,7 @@ from main import app
 
 client = TestClient(app)
 
+# ✅ Match this sample_payload to your model's training columns
 sample_payload = {
     "gender": "Female",
     "SeniorCitizen": 0,
@@ -12,12 +13,12 @@ sample_payload = {
     "PhoneService": "Yes",
     "MultipleLines": "No",
     "InternetService": "DSL",
-    "OnlineSecurity": "Yes",
-    "OnlineBackup": "No",
-    "DeviceProtection": "Yes",
+    "OnlineSecurity": "No",
+    "OnlineBackup": "Yes",
+    "DeviceProtection": "No",
     "TechSupport": "No",
     "StreamingTV": "No",
-    "StreamingMovies": "Yes",
+    "StreamingMovies": "No",
     "Contract": "Month-to-month",
     "PaperlessBilling": "Yes",
     "PaymentMethod": "Electronic check",
@@ -28,5 +29,4 @@ sample_payload = {
 def test_predict():
     response = client.post("/predict", json=sample_payload)
     assert response.status_code == 200
-    data = response.json()
-    assert "predictions" in data
+    assert "prediction" in response.json()

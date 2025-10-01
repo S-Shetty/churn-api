@@ -1,69 +1,30 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import joblib
 import pandas as pd
+import pickle
 import os
-import logging
-
-# Logger setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Load model (will be initialized in startup event)
-model = None
+# --- Load the model ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "telco_linear", "telco_linear.pkl")
 
-# Sample input format using Pydantic
-class CustomerData(BaseModel):
-    gender: str
-    SeniorCitizen: int
-    Partner: str
-    Dependents: str
-    tenure: int
-    PhoneService: str
-    MultipleLines: str
-    InternetService: str
-    OnlineSecurity: str
-    OnlineBackup: str
-    DeviceProtection: str
-    TechSupport: str
-    StreamingTV: str
-    StreamingMovies: str
-    Contract: str
-    PaperlessBilling: str
-    PaymentMethod: str
-    MonthlyCharges: float
-    TotalCharges: float
+try:
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
+except Exception as e:
+    print(f"Error loading model: {e}")
+    model = None
 
-# Triggered when the API starts
-@app.on_event("startup")
-def load_model():
-    global model
-    try:
-        model_path = "models/telco_linear/telco_linear.pkl"
-        if os.path.exists(model_path):
-            model = joblib.load(model_path)
-            logger.info("✅ Model loaded successfully.")
-        else:
-            logger.error(f"❌ Model file not found at: {model_path}")
-    except Exception as e:
-        logger.error(f"❌ Error loading model: {e}")
-
-@app.get("/")
-def root():
-    return {"message": "Churn Prediction API is running"}
-
+# --- Prediction Endpoint ---
 @app.post("/predict")
-def predict(data: CustomerData):
+def predict(data: dict):
+    if model is None:
+        raise HTTPException(status_code=500, detail="Model not loaded")
+
     try:
-        if model is None:
-            raise ValueError("Model not loaded")
-        
-        df = pd.DataFrame([data.dict()])
-        prediction = model.predict(df)
-        return {"predictions": prediction.tolist()}
-    
+        df = pd.DataFrame([data])
+        prediction = model.predict(df)[0]
+        return {"prediction": int(prediction)}
     except Exception as e:
-        logger.error(f"Prediction failed: {e}")
-        raise HTTPException(status_code=500, detail={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
