@@ -1,9 +1,14 @@
 #!/bin/bash
 
-echo "Stopping existing Uvicorn processes..."
-pkill -f "uvicorn" || true
+# Go to the app directory
+cd ~/churn-api
 
-echo "Starting FastAPI app with Uvicorn..."
-nohup uvicorn main:app --host 0.0.0.0 --port 8000 > output.log 2>&1 &
+# Set up Python environment (optional but good practice)
+sudo apt update
+sudo apt install -y python3-pip
 
-echo "✅ Application started on port 8000"
+# Install dependencies
+pip3 install -r requirements.txt
+
+# Start FastAPI with Uvicorn on port 8000
+nohup uvicorn main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
